@@ -1,45 +1,53 @@
-const Discord = require("discord.js");
 
 module.exports = {
     name: "clearghost",
-    usage: "clearghost <ID_utilisateur>",
-    description: "Supprime tous les messages d'un utilisateur qui n'est plus sur le serveur.",
+    description: "Supprime les messages récents d'un utilisateur sur tout le serveur.",
+    usage: "clearghost <ID_utilisateur> <nombre>",
     async execute(client, message, args) {
-        // Vérification des permissions
         if (!message.member.permissions.has("MANAGE_MESSAGES")) {
             return message.reply("❌ Tu n'as pas la permission de gérer les messages.");
         }
 
-        // Vérification de l'argument (ID utilisateur)
-        if (!args[0] || isNaN(args[0])) {
-            return message.reply("❌ Utilisation correcte : `clearghost <ID_utilisateur>`");
+        let userID = args[0];
+        let limit = parseInt(args[1]) || 100; // Par défaut, supprimer 100 messages
+
+        if (!userID || isNaN(limit) || limit <= 0) {
+            return message.reply("❌ Utilisation : `!clearghost <ID_utilisateur> <nombre>`");
         }
 
-        let userID = args[0];
+        let totalDeleted = 0;
 
         try {
-            let deletedMessages = 0;
+            const textChannels = message.guild.channels.cache.filter(c => c.type === 0); // Récupère tous les salons textuels
 
-            // Récupérer les derniers messages du salon (max 100 à la fois)
-            let messages = await message.channel.messages.fetch({ limit: 100 });
+            for (const [channelID, channel] of textChannels) {
+                let deletedMessages = 0;
+                let fetchedMessages;
 
-            // Filtrer les messages de l'utilisateur supprimé
-            let userMessages = messages.filter(msg => msg.author.id === userID);
+                do {
+                    fetchedMessages = await channel.messages.fetch({ limit: 100 }).catch(() => null);
+                    if (!fetchedMessages) break;
 
-            while (userMessages.size > 0) {
-                await message.channel.bulkDelete(userMessages, true);
-                deletedMessages += userMessages.size;
+                    let userMessages = fetchedMessages.filter(m => m.author.id === userID).first(limit - totalDeleted);
+                    if (userMessages.length === 0) break;
 
-                // Récupérer encore 100 messages
-                messages = await message.channel.messages.fetch({ limit: 100 });
-                userMessages = messages.filter(msg => msg.author.id === userID);
+                    await channel.bulkDelete(userMessages, true);
+                    deletedMessages += userMessages.length;
+                    totalDeleted += userMessages.length;
+
+                } while (fetchedMessages.size > 0 && totalDeleted < limit);
+
+                if (totalDeleted >= limit) break;
             }
 
-            return message.reply(`✅ ${deletedMessages} messages supprimés de l'utilisateur **${userID}**.`);
-
+            if (totalDeleted > 0) {
+                message.channel.send(`✅ **${totalDeleted} messages** de l'utilisateur **${userID}** ont été supprimés sur le serveur.`);
+            } else {
+                message.reply("❌ Aucun message récent trouvé pour cet utilisateur.");
+            }
         } catch (error) {
-            console.error("❌ Erreur lors de la suppression :", error);
-            return message.reply("❌ Impossible de supprimer les messages. Vérifie mes permissions.");
+            console.error("❌ Erreur :", error);
+            message.reply("❌ Impossible de supprimer tous les messages. Discord impose des restrictions.");
         }
     }
 };
