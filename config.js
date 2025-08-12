@@ -4,7 +4,7 @@ module.exports = {
         buyer: '915321015515643935', // Buyer
         funny: '915321015515643935',  // Buyer
         couleur: '#6495ED', // Couleur HEX
-        footer: 'DIPN 59', // Dans la commande help ou autre il y'a un texte en bas
+        footer: 'LILLE GESTION', // Dans la commande help ou autre il y'a un texte en bas
         maxServer: '2', // Le nombre de serveur maximum que le bot peut rejoindre
     }
 }
